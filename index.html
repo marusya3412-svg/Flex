@@ -1,0 +1,1395 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>THE FLEX — Financial Dashboard</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<style>
+  :root {
+    --bg: #F0F2F7;
+    --card: #FFFFFF;
+    --card2: #F7F8FC;
+    --border: #DDE1EC;
+    --accent: #D4A000;
+    --text: #111827;
+    --muted: #6B7A9E;
+    --own: #2563EB;
+    --franchise: #7C3AED;
+    --green: #16A34A;
+    --red: #DC2626;
+    --orange: #EA580C;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: var(--bg); color: var(--text); font-family: 'Segoe UI', system-ui, -apple-system, sans-serif; min-height: 100vh; }
+
+  /* LOADER */
+  #loader { position: fixed; inset: 0; background: var(--bg); display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 100; }
+  .loader-logo { font-size: 2rem; font-weight: 900; letter-spacing: 4px; color: var(--accent); margin-bottom: 24px; }
+  .loader-bar { width: 200px; height: 3px; background: var(--border); border-radius: 2px; overflow: hidden; }
+  .loader-fill { height: 100%; background: var(--accent); border-radius: 2px; animation: load 1.8s ease-in-out infinite; }
+  @keyframes load { 0%{width:0;opacity:1} 70%{width:100%;opacity:1} 100%{width:100%;opacity:0} }
+  .loader-text { margin-top: 16px; font-size: 0.8rem; color: var(--muted); letter-spacing: 2px; text-transform: uppercase; }
+
+  /* HEADER */
+  header { background: var(--card); border-bottom: 1px solid var(--border); padding: 0 32px; display: flex; align-items: center; justify-content: space-between; height: 60px; position: sticky; top: 0; z-index: 50; }
+  .logo { font-size: 1.1rem; font-weight: 900; letter-spacing: 3px; color: var(--accent); }
+  .logo span { color: var(--muted); font-weight: 400; font-size: 0.75rem; letter-spacing: 1px; margin-left: 12px; }
+  .header-right { display: flex; align-items: center; gap: 20px; }
+  .last-update { font-size: 0.75rem; color: var(--muted); }
+  .last-update strong { color: var(--text); }
+  .refresh-btn { background: transparent; border: 1px solid var(--border); color: var(--muted); padding: 6px 14px; border-radius: 6px; cursor: pointer; font-size: 0.75rem; transition: all 0.2s; }
+  .refresh-btn:hover { border-color: var(--accent); color: var(--accent); }
+
+  /* PAGE NAV TABS */
+  .page-nav { background: var(--card); border-bottom: 2px solid var(--border); padding: 0 32px; display: flex; gap: 0; position: sticky; top: 60px; z-index: 49; }
+  .page-nav-tab { padding: 14px 22px; font-size: 0.85rem; font-weight: 500; cursor: pointer; color: var(--muted); border-bottom: 2px solid transparent; margin-bottom: -2px; transition: all 0.2s; display: flex; align-items: center; gap: 8px; }
+  .page-nav-tab:hover { color: var(--text); }
+  .page-nav-tab.active { color: var(--accent); border-bottom-color: var(--accent); }
+  .page-nav-tab .tab-icon { font-size: 1rem; }
+  .page-content { display: none; }
+  .page-content.active { display: block; }
+
+  /* FILTERS */
+  .filters { background: var(--card2); border-bottom: 1px solid var(--border); padding: 10px 32px; display: flex; gap: 20px; align-items: center; flex-wrap: wrap; }
+  .filter-group { display: flex; align-items: center; gap: 8px; }
+  .filter-label { font-size: 0.7rem; color: var(--muted); text-transform: uppercase; letter-spacing: 1px; white-space: nowrap; }
+  .filter-select-wrap { position: relative; }
+  .filter-select {
+    background: var(--card); border: 1px solid var(--border); color: var(--text);
+    padding: 7px 36px 7px 14px; border-radius: 8px; font-size: 0.78rem; cursor: pointer;
+    appearance: none; -webkit-appearance: none; outline: none;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%236B7A9E' stroke-width='1.5' fill='none' stroke-linecap='round'/%3E%3C/svg%3E");
+    background-repeat: no-repeat; background-position: right 12px center;
+    transition: border-color 0.2s; min-width: 140px;
+  }
+  .filter-select:focus, .filter-select:hover { border-color: var(--accent); }
+  .filter-select option { background: #FFFFFF; color: #111827; }
+  .filter-divider { width: 1px; height: 24px; background: var(--border); }
+
+  /* DATE RANGE FILTER */
+  .date-range-wrap { display: flex; align-items: center; gap: 6px; }
+  .date-input {
+    background: var(--card); border: 1px solid var(--border); color: var(--text);
+    padding: 7px 10px; border-radius: 8px; font-size: 0.78rem; cursor: pointer;
+    outline: none; transition: border-color 0.2s; font-family: inherit;
+    width: 130px;
+  }
+  .date-input:hover, .date-input:focus { border-color: var(--accent); }
+  .date-sep { color: var(--muted); font-size: 0.78rem; }
+  .date-reset {
+    background: none; border: 1px solid var(--border); color: var(--muted);
+    padding: 6px 10px; border-radius: 8px; font-size: 0.72rem; cursor: pointer;
+    transition: all 0.15s; white-space: nowrap;
+  }
+  .date-reset:hover { border-color: var(--accent); color: var(--accent); }
+  .date-active-tag {
+    background: rgba(212,160,0,0.12); border: 1px solid var(--accent);
+    color: var(--accent); border-radius: 6px; padding: 3px 8px;
+    font-size: 0.7rem; font-weight: 600; white-space: nowrap;
+  }
+
+  /* MULTI-SELECT STUDIO DROPDOWN */
+  .ms-wrap { position: relative; }
+  .ms-btn {
+    background: var(--card); border: 1px solid var(--border); color: var(--text);
+    padding: 7px 36px 7px 14px; border-radius: 8px; font-size: 0.78rem; cursor: pointer;
+    display: flex; align-items: center; gap: 6px; min-width: 200px; max-width: 280px;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%236B7A9E' stroke-width='1.5' fill='none' stroke-linecap='round'/%3E%3C/svg%3E");
+    background-repeat: no-repeat; background-position: right 12px center;
+    transition: border-color 0.2s; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    user-select: none;
+  }
+  .ms-btn:hover, .ms-wrap.open .ms-btn { border-color: var(--accent); }
+  .ms-badge {
+    background: var(--accent); color: #fff; border-radius: 10px;
+    font-size: 0.65rem; font-weight: 700; padding: 1px 6px; flex-shrink: 0;
+  }
+  .ms-dropdown {
+    display: none; position: absolute; top: calc(100% + 6px); left: 0; z-index: 200;
+    background: var(--card); border: 1px solid var(--border); border-radius: 10px;
+    box-shadow: 0 8px 24px rgba(0,0,0,0.12); min-width: 260px; max-height: 340px;
+    overflow-y: auto; padding: 6px 0;
+  }
+  .ms-wrap.open .ms-dropdown { display: block; }
+  .ms-search {
+    margin: 6px 10px 4px; padding: 6px 10px; border: 1px solid var(--border);
+    border-radius: 6px; font-size: 0.78rem; width: calc(100% - 20px);
+    background: var(--bg); color: var(--text); outline: none;
+  }
+  .ms-search:focus { border-color: var(--accent); }
+  .ms-ctrl {
+    display: flex; gap: 6px; padding: 4px 10px 6px; border-bottom: 1px solid var(--border);
+  }
+  .ms-ctrl-btn {
+    font-size: 0.7rem; color: var(--muted); background: none; border: none;
+    cursor: pointer; padding: 2px 4px; border-radius: 4px; transition: color 0.15s;
+  }
+  .ms-ctrl-btn:hover { color: var(--accent); }
+  .ms-item {
+    display: flex; align-items: center; gap: 8px; padding: 7px 14px;
+    cursor: pointer; font-size: 0.78rem; transition: background 0.12s;
+  }
+  .ms-item:hover { background: var(--bg); }
+  .ms-item input[type=checkbox] { accent-color: var(--accent); width: 14px; height: 14px; flex-shrink: 0; cursor: pointer; }
+  .ms-item-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+  .ms-item-name { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .ms-separator { height: 1px; background: var(--border); margin: 4px 0; }
+
+  /* MAIN */
+  main { padding: 28px 32px; }
+
+  /* KPI */
+  .kpi-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 16px; margin-bottom: 28px; }
+  .kpi-grid-4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-bottom: 28px; }
+  .kpi-card { background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 20px; display: flex; flex-direction: column; gap: 8px; }
+  .kpi-label { font-size: 0.7rem; color: var(--muted); text-transform: uppercase; letter-spacing: 1px; }
+  .kpi-value { font-size: 1.6rem; font-weight: 700; color: var(--text); line-height: 1; }
+  .kpi-value.accent { color: var(--accent); }
+  .kpi-value.green { color: var(--green); }
+  .kpi-value.red { color: var(--red); }
+  .kpi-value.purple { color: var(--franchise); }
+  .kpi-sub { font-size: 0.72rem; color: var(--muted); }
+  .kpi-tag { display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 0.65rem; font-weight: 600; letter-spacing: 0.5px; }
+  .kpi-tag.pos { background: rgba(34,197,94,0.15); color: var(--green); }
+  .kpi-tag.neg { background: rgba(239,68,68,0.15); color: var(--red); }
+
+  /* CHARTS */
+  .charts-row { display: grid; gap: 20px; margin-bottom: 20px; }
+  .charts-row-2 { grid-template-columns: 1fr 1fr; }
+  .charts-row-3 { grid-template-columns: 2fr 1fr; }
+  .charts-row-32 { grid-template-columns: 3fr 2fr; }
+  .chart-card { background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 24px; }
+  .chart-title { font-size: 0.8rem; font-weight: 600; text-transform: uppercase; letter-spacing: 1px; color: var(--muted); margin-bottom: 4px; }
+  .chart-subtitle { font-size: 0.72rem; color: var(--muted); margin-bottom: 20px; opacity: 0.6; }
+  .chart-wrap { position: relative; }
+  .chart-wrap.tall { height: 300px; }
+  .chart-wrap.medium { height: 250px; }
+  .chart-wrap.short { height: 180px; }
+
+  /* TABLE */
+  .pf-table { width: 100%; border-collapse: collapse; font-size: 0.8rem; }
+  .pf-table th { text-align: left; padding: 8px 10px; border-bottom: 1px solid var(--border); color: var(--muted); font-weight: 500; font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.5px; }
+  .pf-table td { padding: 10px; border-bottom: 1px solid rgba(30,45,80,0.12); }
+  .pf-table tr:last-child td { border-bottom: none; }
+  .pf-table tr:hover td { background: rgba(0,0,0,0.02); }
+  .studio-dot { display: inline-block; width: 6px; height: 6px; border-radius: 50%; margin-right: 6px; flex-shrink: 0; }
+  .studio-dot.own { background: var(--own); }
+  .studio-dot.franchise { background: var(--franchise); }
+  .deviation-bar { height: 4px; border-radius: 2px; background: var(--border); margin-top: 4px; }
+  .deviation-fill { height: 100%; border-radius: 2px; }
+  .text-right { text-align: right; }
+  .text-green { color: var(--green); }
+  .text-red { color: var(--red); }
+  .text-muted { color: var(--muted); }
+
+  /* LEGEND */
+  .legend { display: flex; gap: 16px; flex-wrap: wrap; margin-bottom: 16px; }
+  .legend-item { display: flex; align-items: center; gap: 6px; font-size: 0.72rem; color: var(--muted); }
+  .legend-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+
+  /* PRODUCTS */
+  .prod-row { display: flex; align-items: center; gap: 10px; padding: 8px 0; border-bottom: 1px solid rgba(30,45,80,0.1); }
+  .prod-row:last-child { border-bottom: none; }
+  .prod-rank { font-size: 0.7rem; color: var(--muted); width: 18px; text-align: right; flex-shrink: 0; }
+  .prod-bar { height: 3px; background: var(--border); border-radius: 2px; margin-top: 3px; }
+  .prod-fill { height: 100%; border-radius: 2px; }
+  .prod-amount { font-size: 0.78rem; font-weight: 600; text-align: right; min-width: 70px; flex-shrink: 0; }
+  .prod-pct { font-size: 0.65rem; color: var(--muted); text-align: right; min-width: 36px; flex-shrink: 0; }
+
+  /* SECTION HEADER */
+  .section-header { display: flex; align-items: center; gap: 12px; margin-bottom: 16px; margin-top: 28px; }
+  .section-header:first-child { margin-top: 0; }
+  .section-title { font-size: 1rem; font-weight: 600; }
+  .section-badge { padding: 3px 10px; border-radius: 10px; font-size: 0.65rem; font-weight: 600; text-transform: uppercase; letter-spacing: 1px; }
+  .badge-live { background: rgba(34,197,94,0.15); color: var(--green); }
+  .badge-soon { background: rgba(107,122,158,0.15); color: var(--muted); }
+
+  /* PLACEHOLDER */
+  .placeholder-card { background: var(--card); border: 1px dashed var(--border); border-radius: 12px; padding: 40px; text-align: center; color: var(--muted); margin-bottom: 20px; }
+  .placeholder-card h3 { font-size: 1rem; margin-bottom: 8px; color: var(--text); opacity: 0.5; }
+  .placeholder-card p { font-size: 0.8rem; line-height: 1.6; }
+  .tags-row { display: flex; gap: 8px; flex-wrap: wrap; justify-content: center; margin-top: 16px; }
+  .tag { border: 1px solid var(--border); border-radius: 20px; padding: 4px 12px; font-size: 0.7rem; color: var(--muted); opacity: 0.6; }
+
+  /* BUDGET TABLE */
+  .bud-month-row { display: grid; gap: 1px; margin-top: 4px; }
+  .bud-month-cell { font-size: 0.7rem; color: var(--muted); text-align: right; padding: 2px 0; }
+
+  ::-webkit-scrollbar { width: 6px; height: 6px; }
+  ::-webkit-scrollbar-track { background: var(--bg); }
+  ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+
+  @media (max-width: 1200px) { .kpi-grid { grid-template-columns: repeat(3, 1fr); } .kpi-grid-4 { grid-template-columns: repeat(2, 1fr); } }
+  @media (max-width: 900px) { .charts-row-2, .charts-row-3, .charts-row-32 { grid-template-columns: 1fr; } .kpi-grid, .kpi-grid-4 { grid-template-columns: repeat(2, 1fr); } main { padding: 16px; } header, .page-nav, .filters { padding-left: 16px; padding-right: 16px; } }
+</style>
+</head>
+<body>
+
+<!-- LOADER -->
+<div id="loader">
+  <div class="loader-logo">THE FLEX</div>
+  <div class="loader-bar"><div class="loader-fill"></div></div>
+  <div class="loader-text">Загрузка данных из Google Sheets...</div>
+</div>
+
+<!-- HEADER -->
+<header>
+  <div class="logo">THE FLEX <span>Financial Dashboard</span></div>
+  <div class="header-right">
+    <div class="last-update">Обновлено: <strong id="updateTime">—</strong></div>
+    <button class="refresh-btn" onclick="location.reload()">↻ Обновить</button>
+  </div>
+</header>
+
+<!-- PAGE TABS -->
+<nav class="page-nav">
+  <div class="page-nav-tab active" onclick="switchPage('revenue', this)">
+    <span class="tab-icon">📊</span> Выручка
+  </div>
+  <div class="page-nav-tab" onclick="switchPage('services', this)">
+    <span class="tab-icon">🎯</span> Услуги
+  </div>
+  <div class="page-nav-tab" onclick="switchPage('budget', this)">
+    <span class="tab-icon">📋</span> Бюджет
+  </div>
+</nav>
+
+<!-- FILTERS -->
+<div class="filters">
+  <div class="filter-group">
+    <span class="filter-label">Период:</span>
+    <div class="date-range-wrap">
+      <input type="date" id="dateFrom" class="date-input" placeholder="от" onchange="onFilterChange()">
+      <span class="date-sep">—</span>
+      <input type="date" id="dateTo" class="date-input" placeholder="до" onchange="onFilterChange()">
+      <button class="date-reset" id="dateResetBtn" onclick="resetDateFilter()" style="display:none">✕ Сбросить</button>
+      <span class="date-active-tag" id="dateActiveTag" style="display:none"></span>
+    </div>
+  </div>
+  <div class="filter-divider"></div>
+  <div class="filter-group">
+    <span class="filter-label">Тип студии:</span>
+    <div class="filter-select-wrap">
+      <select id="filterType" class="filter-select" onchange="onFilterChange()">
+        <option value="all">Все типы</option>
+        <option value="own">Свои студии</option>
+        <option value="franchise">Франчайзи</option>
+        <option value="other">Прочие</option>
+      </select>
+    </div>
+  </div>
+  <div class="filter-divider"></div>
+  <div class="filter-group">
+    <span class="filter-label">Студия:</span>
+    <div class="ms-wrap" id="msWrap">
+      <div class="ms-btn" id="msBtn" onclick="toggleMsDropdown()">
+        <span id="msBtnText">Все студии</span>
+        <span class="ms-badge" id="msBadge" style="display:none"></span>
+      </div>
+      <div class="ms-dropdown" id="msDropdown">
+        <input class="ms-search" id="msSearch" type="text" placeholder="Поиск студии..." oninput="filterMsItems()">
+        <div class="ms-ctrl">
+          <button class="ms-ctrl-btn" onclick="msSelectAll()">Выбрать все</button>
+          <button class="ms-ctrl-btn" onclick="msClearAll()">Снять все</button>
+        </div>
+        <div id="msItemList"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- MAIN -->
+<main>
+
+  <!-- ══ TAB: ВЫРУЧКА ══════════════════════════════════════════════════════ -->
+  <div id="page-revenue" class="page-content active">
+
+    <div class="section-header">
+      <span class="section-title">Выручка</span>
+      <span class="section-badge badge-live">● Live — 1С Фитнес</span>
+    </div>
+
+    <!-- KPI -->
+    <div class="kpi-grid">
+      <div class="kpi-card">
+        <div class="kpi-label">Факт выручка</div>
+        <div class="kpi-value accent" id="kpiTotal">—</div>
+        <div class="kpi-sub" id="kpiPeriod">—</div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-label">План выручка</div>
+        <div class="kpi-value" id="kpiBudget">—</div>
+        <div class="kpi-sub">по студиям с планом</div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-label">Отклонение</div>
+        <div class="kpi-value" id="kpiDev">—</div>
+        <div class="kpi-sub" id="kpiDevPct">—</div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-label">Сумма расходов</div>
+        <div class="kpi-value" id="kpiExpenses" style="color:var(--muted)">—</div>
+        <div class="kpi-sub" style="display:flex;align-items:center;gap:4px"><span style="width:6px;height:6px;border-radius:50%;background:var(--orange);display:inline-block"></span>Ожидают 1С КА</div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-label">EBITDA</div>
+        <div class="kpi-value" id="kpiEbitda" style="color:var(--muted)">—</div>
+        <div class="kpi-sub" style="display:flex;align-items:center;gap:4px"><span style="width:6px;height:6px;border-radius:50%;background:var(--orange);display:inline-block"></span>Выручка − Расходы</div>
+      </div>
+    </div>
+
+    <!-- ROW 1: Выручка по студиям + ПФ таблица -->
+    <div class="charts-row charts-row-2">
+      <div class="chart-card">
+        <div class="chart-title">Выручка по студиям</div>
+        <div class="chart-subtitle">Фактическая выручка в выбранном периоде</div>
+        <div class="legend">
+          <div class="legend-item"><div class="legend-dot" style="background:var(--own)"></div> Свои</div>
+          <div class="legend-item"><div class="legend-dot" style="background:var(--franchise)"></div> Франчайзи</div>
+        </div>
+        <div class="chart-wrap tall"><canvas id="chartByStudio"></canvas></div>
+      </div>
+      <div class="chart-card">
+        <div class="chart-title">План / Факт по студиям</div>
+        <div class="chart-subtitle">Отклонение от плана</div>
+        <div style="overflow-y:auto;max-height:360px;">
+          <table class="pf-table">
+            <thead><tr>
+              <th>Студия</th>
+              <th class="text-right">Факт</th>
+              <th class="text-right">План</th>
+              <th class="text-right">Откл.</th>
+            </tr></thead>
+            <tbody id="pfTableBody"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- ROW 2: Динамика -->
+    <div class="charts-row" style="grid-template-columns:1fr">
+      <div class="chart-card">
+        <div class="chart-title">Динамика по месяцам</div>
+        <div class="chart-subtitle">Факт vs План (общая по сети)</div>
+        <div class="legend">
+          <div class="legend-item"><div class="legend-dot" style="background:var(--accent)"></div> Факт</div>
+          <div class="legend-item"><div class="legend-dot" style="background:var(--muted);opacity:0.5"></div> План</div>
+        </div>
+        <div class="chart-wrap tall"><canvas id="chartTrend"></canvas></div>
+      </div>
+    </div>
+
+    <!-- ROW 3: Номенклатура -->
+    <div class="charts-row charts-row-2">
+      <div class="chart-card">
+        <div class="chart-title">Структура по номенклатуре</div>
+        <div class="chart-subtitle">По категориям продуктов</div>
+        <div class="chart-wrap medium"><canvas id="chartProducts"></canvas></div>
+      </div>
+      <div class="chart-card">
+        <div class="chart-title">Топ-15 позиций</div>
+        <div class="chart-subtitle">По сумме выручки</div>
+        <div id="topProductsList" style="max-height:280px;overflow-y:auto;"></div>
+      </div>
+    </div>
+
+    <!-- ROW 4: Помесячно по студиям -->
+    <div class="charts-row charts-row-2">
+      <div class="chart-card">
+        <div class="chart-title">Свои студии — помесячно</div>
+        <div class="chart-subtitle">Динамика выручки</div>
+        <div class="chart-wrap tall"><canvas id="chartOwnMonthly"></canvas></div>
+      </div>
+      <div class="chart-card">
+        <div class="chart-title">Франчайзи — помесячно</div>
+        <div class="chart-subtitle">Динамика выручки</div>
+        <div class="chart-wrap tall"><canvas id="chartFranchiseMonthly"></canvas></div>
+      </div>
+    </div>
+
+    <!-- ROW 5: Структура Свои vs Франчайзи (внизу) -->
+    <div class="charts-row" style="grid-template-columns:320px 1fr">
+      <div class="chart-card">
+        <div class="chart-title">Структура</div>
+        <div class="chart-subtitle">Свои vs Франчайзи</div>
+        <div class="chart-wrap medium" style="display:flex;align-items:center;justify-content:center;">
+          <canvas id="chartSplit"></canvas>
+        </div>
+        <div id="splitLegend" style="margin-top:12px;"></div>
+      </div>
+      <div class="chart-card">
+        <div class="chart-title">Расходы по статьям</div>
+        <div class="chart-subtitle">Ожидают подключения 1С КА</div>
+        <div class="placeholder-card" style="margin:0;border:none;background:transparent">
+          <div class="tags-row">
+            <span class="tag">ФОТ (с налогами)</span><span class="tag">Аренда</span><span class="tag">Гарантии клиентам</span>
+            <span class="tag">Содержание студии</span><span class="tag">Комиссии с продаж</span><span class="tag">Маркетинг</span>
+            <span class="tag">Услуги связи и IT</span><span class="tag">Услуги банка</span><span class="tag">Ремонт помещений</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+
+  </div><!-- /page-revenue -->
+
+
+  <!-- ══ TAB: УСЛУГИ ═══════════════════════════════════════════════════════ -->
+  <div id="page-services" class="page-content">
+
+    <div class="section-header">
+      <span class="section-title">Аналитика услуг</span>
+      <span class="section-badge badge-live">● Live — 1С Фитнес</span>
+    </div>
+
+    <!-- KPI -->
+    <div class="kpi-grid-4">
+      <div class="kpi-card">
+        <div class="kpi-label">Всего операций</div>
+        <div class="kpi-value accent" id="svcKpiCount">—</div>
+        <div class="kpi-sub" id="svcKpiPeriod">—</div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-label">Средний чек</div>
+        <div class="kpi-value" id="svcKpiAvg">—</div>
+        <div class="kpi-sub">руб. за операцию</div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-label">Уникальных позиций</div>
+        <div class="kpi-value" id="svcKpiUniq">—</div>
+        <div class="kpi-sub">номенклатура</div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-label">Топ категория</div>
+        <div class="kpi-value" id="svcKpiTopCat" style="font-size:1rem;">—</div>
+        <div class="kpi-sub" id="svcKpiTopCatSub">—</div>
+      </div>
+    </div>
+
+    <!-- ROW 1 -->
+    <div class="charts-row charts-row-2">
+      <div class="chart-card">
+        <div class="chart-title">Кол-во операций по категориям</div>
+        <div class="chart-subtitle">Количество записей в каждой категории услуг</div>
+        <div class="chart-wrap tall"><canvas id="chartSvcCatCount"></canvas></div>
+      </div>
+      <div class="chart-card">
+        <div class="chart-title">Средний чек по категориям</div>
+        <div class="chart-subtitle">Средняя сумма одной операции, руб.</div>
+        <div class="chart-wrap tall"><canvas id="chartSvcCatAvg"></canvas></div>
+      </div>
+    </div>
+
+    <!-- ROW 2 -->
+    <div class="charts-row charts-row-2">
+      <div class="chart-card">
+        <div class="chart-title">Кол-во операций по студиям</div>
+        <div class="chart-subtitle">Активность студий по количеству транзакций</div>
+        <div class="chart-wrap tall"><canvas id="chartSvcStudio"></canvas></div>
+      </div>
+      <div class="chart-card">
+        <div class="chart-title">Топ-15 позиций номенклатуры</div>
+        <div class="chart-subtitle">По количеству операций</div>
+        <div id="topSvcList" style="max-height:320px;overflow-y:auto;"></div>
+      </div>
+    </div>
+
+    <!-- ROW 3 -->
+    <div class="charts-row charts-row-2">
+      <div class="chart-card">
+        <div class="chart-title">Динамика кол-ва операций по месяцам</div>
+        <div class="chart-subtitle">Сумма и количество</div>
+        <div class="chart-wrap tall"><canvas id="chartSvcTrend"></canvas></div>
+      </div>
+      <div class="chart-card">
+        <div class="chart-title">Детализация по категориям</div>
+        <div class="chart-subtitle">Количество, сумма, средний чек</div>
+        <div style="overflow-y:auto;max-height:320px;">
+          <table class="pf-table">
+            <thead><tr>
+              <th>Категория</th>
+              <th class="text-right">Кол-во</th>
+              <th class="text-right">Сумма</th>
+              <th class="text-right">Ср. чек</th>
+            </tr></thead>
+            <tbody id="svcCatTableBody"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+  </div><!-- /page-services -->
+
+
+  <!-- ══ TAB: БЮДЖЕТ ═══════════════════════════════════════════════════════ -->
+  <div id="page-budget" class="page-content">
+
+    <div class="section-header">
+      <span class="section-title">Бюджет</span>
+      <span class="section-badge badge-live">● plan_2026_v1</span>
+    </div>
+
+    <!-- KPI -->
+    <div class="kpi-grid-4">
+      <div class="kpi-card">
+        <div class="kpi-label">Общий план</div>
+        <div class="kpi-value accent" id="budKpiTotal">—</div>
+        <div class="kpi-sub" id="budKpiPeriod">—</div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-label">Свои студии</div>
+        <div class="kpi-value" id="budKpiOwn">—</div>
+        <div class="kpi-sub" id="budKpiOwnPct">—</div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-label">Франчайзи</div>
+        <div class="kpi-value purple" id="budKpiFran">—</div>
+        <div class="kpi-sub" id="budKpiFranPct">—</div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-label">Исполнение плана</div>
+        <div class="kpi-value" id="budKpiExec">—</div>
+        <div class="kpi-sub" id="budKpiExecSub">факт / план</div>
+      </div>
+    </div>
+
+    <!-- ROW 1 -->
+    <div class="charts-row charts-row-32">
+      <div class="chart-card">
+        <div class="chart-title">План по студиям</div>
+        <div class="chart-subtitle">Плановая выручка в выбранном периоде</div>
+        <div class="legend">
+          <div class="legend-item"><div class="legend-dot" style="background:var(--own)"></div> Свои</div>
+          <div class="legend-item"><div class="legend-dot" style="background:var(--franchise)"></div> Франчайзи</div>
+          <div class="legend-item"><div class="legend-dot" style="background:var(--accent)"></div> Факт</div>
+        </div>
+        <div class="chart-wrap tall"><canvas id="budChartByStudio"></canvas></div>
+      </div>
+      <div class="chart-card">
+        <div class="chart-title">Исполнение плана %</div>
+        <div class="chart-subtitle">Факт / план по каждой студии</div>
+        <div class="chart-wrap tall"><canvas id="budChartExec"></canvas></div>
+      </div>
+    </div>
+
+    <!-- ROW 2 -->
+    <div class="charts-row charts-row-2">
+      <div class="chart-card">
+        <div class="chart-title">Динамика план / факт по месяцам</div>
+        <div class="chart-subtitle">Выполнение бюджета помесячно</div>
+        <div class="chart-wrap tall"><canvas id="budChartMonthly"></canvas></div>
+      </div>
+      <div class="chart-card">
+        <div class="chart-title">Детализация бюджета</div>
+        <div class="chart-subtitle">Все студии с помесячным планом</div>
+        <div style="overflow-y:auto;max-height:360px;">
+          <table class="pf-table" id="budDetailTable">
+            <thead><tr id="budDetailHead"></tr></thead>
+            <tbody id="budDetailBody"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+  </div><!-- /page-budget -->
+
+</main>
+
+<script>
+// ─── CONFIG ─────────────────────────────────────────────────────────────────
+const SHEET_ID = '1WUgVf1F7ODLpBAP1LFcMM4ogPWSVqEUGRh6q7Kb9mzg';
+
+Chart.defaults.color = '#6B7A9E';
+Chart.defaults.borderColor = '#DDE1EC';
+Chart.defaults.font.family = "'Segoe UI', system-ui, sans-serif";
+Chart.defaults.font.size = 11;
+const GRID = '#E5E8F0';
+const GRID2 = '#DDE1EC';
+
+// ─── STATE ──────────────────────────────────────────────────────────────────
+let state = {
+  revenue: [], budget: [], studios: {},
+  periods: [],
+  dateFrom: null,          // 'YYYY-MM-DD' | null
+  dateTo:   null,          // 'YYYY-MM-DD' | null
+  selectedType: 'all',     // 'all' | 'own' | 'franchise' | 'other'
+  selectedStudios: new Set(), // empty = все студии
+  activePage: 'revenue',
+  charts: {},
+};
+
+// ─── UTILS ──────────────────────────────────────────────────────────────────
+const fmt = (n) => {
+  if (n === null || n === undefined || isNaN(n)) return '—';
+  if (Math.abs(n) >= 1e6) return (n / 1e6).toFixed(1) + ' млн';
+  if (Math.abs(n) >= 1e3) return (n / 1e3).toFixed(0) + ' тыс';
+  return n.toLocaleString('ru-RU');
+};
+const fmtFull = (n) => n?.toLocaleString('ru-RU', { maximumFractionDigits: 0 }) ?? '—';
+
+function parseAmount(v) {
+  if (!v) return 0;
+  return parseFloat(String(v).replace(/\s/g, '').replace(',', '.')) || 0;
+}
+
+function parseTxDate(v) {
+  if (!v) return null;
+  // gviz JSON returns dates as "Date(year,month0idx,day)"
+  const m = String(v).match(/Date\((\d+),(\d+),(\d+)\)/);
+  if (m) {
+    const y = m[1], mo = String(parseInt(m[2]) + 1).padStart(2, '0'), d = String(parseInt(m[3])).padStart(2, '0');
+    return `${y}-${mo}-${d}`;
+  }
+  // Already ISO string or spreadsheet date
+  if (/^\d{4}-\d{2}-\d{2}/.test(String(v))) return String(v).slice(0, 10);
+  return null;
+}
+
+const MONTH_NAMES = ['', 'Янв', 'Фев', 'Мар', 'Апр', 'Май', 'Июн', 'Июл', 'Авг', 'Сен', 'Окт', 'Ноя', 'Дек'];
+
+function periodLabel(p) {
+  const [y, m] = p.split('-');
+  return `${MONTH_NAMES[parseInt(m)]} ${y}`;
+}
+
+function shortName(s) {
+  return (s || '').replace('THE FLEX | ', '').replace('TF ', '').replace('The FLEX | ', '').replace('THE FLEX ', '');
+}
+
+function categorizeProduct(name) {
+  const n = (name || '').toLowerCase().trim();
+  if (!n) return 'Прочее';
+
+  // ── 1. СЕРВИС ────────────────────────────────────────────────────────────
+  if (/смена владельца|смена номенклатур|переоформл|заморозк|добавлени.{1,15}дн|предварит.{1,25}запись|диагностик|вводный курс|изменение срока/.test(n)
+    || /подарочный сертификат|^сертификат$/.test(n)) return 'Сервис';
+
+  // ── 2. ОДЕЖДА & АКСЕССУАРЫ ───────────────────────────────────────────────
+  if (/футболк|леггинс|толстовк|рашгард|лонгслив|тапочк|полотенц|шейкер|бутылк|коврик|сумк|аксессу|повязк|перчатк|кофта|шоппер|блок для йоги|блоки спортивн/.test(n)
+    || /^носки|носки[ .,$]|носки$|противоскользящ|\bтоп\b/.test(n)
+    || n.includes('резинка для волос')
+    || (n.includes('резинка') && n.includes('пружинк'))) return 'Одежда & Аксессуары';
+
+  // ── 3. МАССАЖ & RELAX ZONE ───────────────────────────────────────────────
+  if (/массаж|relax.?zone|скульптур|антицеллюл|лимфодренаж|обёрт|обертыван|black.flex|воротников|отдельная зона|зона спина|massage.mix|\d+.massage/.test(n)
+    || /\d+\s*сеанс/.test(n)) return 'Массаж & Relax Zone';
+
+  // ── 4. НАПИТКИ ───────────────────────────────────────────────────────────
+  if (/\bвода\b|^вода |baikal|байкал|пилигрим|l-carnitine|l carnitine|xxl power|carnitine|bcaa|daily-c|\bнапиток\b/.test(n)
+    || n === 'коллаген') return 'Напитки';
+
+  // ── 5. СНЭКИ & СПОРТПИТ ──────────────────────────────────────────────────
+  if (/chikalab|chikabar|chikalayers|chikapie|protein.?rex|rex brownie|rex blondie|snaq.fabriq|snaqfer|bootybar|bombbar|chrunch|marshick|nattys|fit.kit|fitness.?shock|ё-батон|twins.?bar|cocos.coconut|protein.cake|shocks/.test(n)
+    || /батончик|печенье|вафля|чипсы|брауни|пирожн|снэк|снек|спортпит|протеиновое|протеиновый|^бар\b/.test(n)) return 'Снэки & Спортпит';
+
+  // ── 6. ПЕРСОНАЛЬНЫЕ ТРЕНИРОВКИ ───────────────────────────────────────────
+  if (/персональн|индивидуальн|\bпт\b|personal.training|\d+\s*personal/.test(n)) return 'Персональные тренировки';
+
+  // ── 7. РАЗОВЫЕ ЗАНЯТИЯ & МК ──────────────────────────────────────────────
+  if (/пробн|^разов|\bмк\b|^мк[ ]|mk.love|test.drive|\d\s*за\s*\d|пилатес.на|loveset/.test(n)) return 'Разовые занятия & МК';
+
+  // ── 8. АБОНЕМЕНТЫ ────────────────────────────────────────────────────────
+  if (/\bгод\b|\bлет\b|безлимит|пол.года|\d+\s*месяц|\d+\s*тренировок|\d+\s*тренировки|\d+\s*занятий/.test(n)
+    || /абонем|подписк|unlimited|unlimeted|loyalty|льготн|мульти.карт|limited.edition/.test(n)
+    || /new.year|valentine|new.season|daytime|expressup|me.?&.?you|only.fitness|just.fitness|back.to.flex/.test(n)
+    || /all.inclusive|максимум:|старт:|баланс:|стандарт.для|для своих|hdb|years.gold|years.silver|years.only/.test(n)
+    || /flex.vip|flex.basic|flex.balance|flex.soft|flex.prime|flex.smart|flex.loyalty|flex.friends|flex.magic|flex.&.strength/.test(n)
+    || /flex.eco|flex.lite|smart.flex|flex\s*\|\s*.+|flex\s+12\.12|the.flex\s*\|\s*.+|secret.card|high.five|womans.time/.test(n)
+    || /\bvip\b|vip.special|premium.special|smart.special|vip.безлимит/.test(n)
+    || /tf.reformers|reformers\s*\d|unlimeted.reformers|flex.reformers/.test(n)
+    || /мусина.special|победы.special|lite.start|блогер.*безлимит|пробный.безлимит|regular.*месяц|тренировок/.test(n)) return 'Абонементы';
+
+  return 'Прочее';
+}
+
+const CAT_COLORS = {
+  'Абонементы':               '#3B82F6',
+  'Персональные тренировки':  '#8B5CF6',
+  'Разовые занятия & МК':     '#06B6D4',
+  'Массаж & Relax Zone':      '#F59E0B',
+  'Напитки':                  '#10B981',
+  'Снэки & Спортпит':         '#F97316',
+  'Одежда & Аксессуары':      '#EC4899',
+  'Сервис':                   '#64748B',
+  'Прочее':                   '#374151',
+};
+
+// ─── JSONP FETCH ─────────────────────────────────────────────────────────────
+function fetchGViz(gid) {
+  return new Promise((resolve, reject) => {
+    const cbName = `__gviz_${gid}_${Date.now()}`;
+    const script = document.createElement('script');
+    let settled = false;
+    const cleanup = () => { settled = true; delete window[cbName]; script.remove(); };
+    window[cbName] = (data) => {
+      cleanup();
+      if (data?.status === 'ok' && data.table) resolve(data.table);
+      else reject(new Error('GViz error gid=' + gid));
+    };
+    script.src = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:json;responseHandler:${cbName}&gid=${gid}`;
+    script.onerror = () => { if (!settled) { cleanup(); reject(new Error('Script error gid=' + gid)); } };
+    document.head.appendChild(script);
+    setTimeout(() => { if (!settled) { cleanup(); reject(new Error('Timeout gid=' + gid)); } }, 20000);
+  });
+}
+
+function gvizRows(table) {
+  if (!table?.rows) return [];
+  return table.rows.map(row => (table.cols || []).map((_, i) => row.c?.[i]?.v ?? null));
+}
+
+// ─── LOAD DATA ───────────────────────────────────────────────────────────────
+async function loadData() {
+  const [stuTable, revTable, budTable] = await Promise.all([
+    fetchGViz(1227686446),
+    fetchGViz(1065570525),
+    fetchGViz(324930976),
+  ]);
+
+  // Studios
+  gvizRows(stuTable).forEach(r => {
+    if (r[0] != null && !isNaN(r[0])) {
+      state.studios[String(r[0])] = { id: String(r[0]), name: r[2], address: r[3], status: r[5], type: r[6] };
+    }
+  });
+
+  // Revenue
+  state.revenue = gvizRows(revTable)
+    .filter(r => r[0] != null && !isNaN(r[0]) && r[8])
+    .map(r => {
+      const studio_id = String(r[1] ?? '').trim();
+      return { id: r[0], studio_id, tx_date: parseTxDate(r[3]), revenue_type: r[4] || 'own', product_type: r[5], amount: parseAmount(r[6]), period: r[8], studio_name: r[9] };
+    });
+
+  // Budget
+  state.budget = gvizRows(budTable)
+    .filter(r => r[0] != null && !isNaN(r[0]) && r[4] && r[5])
+    .map(r => {
+      const year = parseInt(r[4]), month = parseInt(r[5]);
+      return { id: r[0], studio_id: String(r[1] ?? '').trim(), studio_name: r[2], category_id: r[3], year, month, amount: parseAmount(r[6]), version: r[7], period: `${year}-${String(month).padStart(2, '0')}` };
+    });
+
+  // Periods (for trend charts)
+  const periodsSet = new Set(state.revenue.map(r => r.period).filter(Boolean));
+  state.periods = Array.from(periodsSet).sort();
+
+  // Set default date range to cover available data
+  if (state.periods.length) {
+    const minDate = state.periods[0] + '-01';
+    const lastPeriod = state.periods[state.periods.length - 1];
+    const lastDate = new Date(lastPeriod + '-01');
+    lastDate.setMonth(lastDate.getMonth() + 1);
+    lastDate.setDate(0); // last day of last month
+    const maxDate = lastDate.toISOString().slice(0, 10);
+    document.getElementById('dateFrom').value = minDate;
+    document.getElementById('dateTo').value = maxDate;
+    state.dateFrom = minDate;
+    state.dateTo = maxDate;
+  }
+
+  // Build studio list for multi-select
+  const studioMap = new Map(); // id → {name, type}
+  state.revenue.forEach(r => {
+    if (r.studio_id && !studioMap.has(r.studio_id))
+      studioMap.set(r.studio_id, { name: r.studio_name || r.studio_id, type: r.revenue_type });
+  });
+  state.studioList = Array.from(studioMap.entries())
+    .sort((a, b) => {
+      const typeOrder = { own: 0, franchise: 1, other: 2 };
+      const ta = typeOrder[a[1].type] ?? 3, tb = typeOrder[b[1].type] ?? 3;
+      if (ta !== tb) return ta - tb;
+      return a[1].name.localeCompare(b[1].name, 'ru');
+    })
+    .map(([id, info]) => ({ id, ...info }));
+  buildMsItems(state.studioList);
+}
+
+// ─── FILTERS ─────────────────────────────────────────────────────────────────
+function onFilterChange() {
+  const prevType = state.selectedType;
+  state.dateFrom = document.getElementById('dateFrom').value || null;
+  state.dateTo   = document.getElementById('dateTo').value   || null;
+  state.selectedType = document.getElementById('filterType').value;
+
+  // Показываем/скрываем кнопку сброса и тег
+  const resetBtn = document.getElementById('dateResetBtn');
+  const activeTag = document.getElementById('dateActiveTag');
+  const hasCustomRange = state.dateFrom || state.dateTo;
+  resetBtn.style.display = hasCustomRange ? '' : 'none';
+  if (hasCustomRange && state.dateFrom && state.dateTo) {
+    activeTag.style.display = '';
+    const d1 = state.dateFrom.split('-').reverse().join('.');
+    const d2 = state.dateTo.split('-').reverse().join('.');
+    activeTag.textContent = `${d1} — ${d2}`;
+  } else {
+    activeTag.style.display = 'none';
+  }
+
+  if (prevType !== state.selectedType) {
+    state.selectedStudios.clear();
+    const visible = state.studioList.filter(s => state.selectedType === 'all' || s.type === state.selectedType);
+    buildMsItems(visible);
+    updateMsBtn();
+  }
+  render();
+}
+
+function resetDateFilter() {
+  if (state.periods.length) {
+    const minDate = state.periods[0] + '-01';
+    const lastPeriod = state.periods[state.periods.length - 1];
+    const lastDate = new Date(lastPeriod + '-01');
+    lastDate.setMonth(lastDate.getMonth() + 1);
+    lastDate.setDate(0);
+    const maxDate = lastDate.toISOString().slice(0, 10);
+    document.getElementById('dateFrom').value = minDate;
+    document.getElementById('dateTo').value = maxDate;
+    state.dateFrom = minDate;
+    state.dateTo = maxDate;
+  } else {
+    document.getElementById('dateFrom').value = '';
+    document.getElementById('dateTo').value = '';
+    state.dateFrom = null;
+    state.dateTo = null;
+  }
+  document.getElementById('dateResetBtn').style.display = 'none';
+  document.getElementById('dateActiveTag').style.display = 'none';
+  render();
+}
+
+function filteredRevenue() {
+  return state.revenue.filter(r => {
+    let dateOk = true;
+    if (state.dateFrom || state.dateTo) {
+      const d = r.tx_date;
+      if (!d) dateOk = false;
+      else {
+        if (state.dateFrom && d < state.dateFrom) dateOk = false;
+        if (state.dateTo   && d > state.dateTo)   dateOk = false;
+      }
+    }
+    const t = state.selectedType  === 'all' || r.revenue_type === state.selectedType;
+    const s = state.selectedStudios.size === 0 || state.selectedStudios.has(r.studio_id);
+    return dateOk && t && s;
+  });
+}
+
+function filteredBudget() {
+  return state.budget.filter(r => {
+    let periodOk = true;
+    if (state.dateFrom || state.dateTo) {
+      // Budget month: YYYY-MM → check overlap with date range
+      const mStart = r.period + '-01';
+      const mEnd = (() => {
+        const d = new Date(r.period + '-01');
+        d.setMonth(d.getMonth() + 1); d.setDate(0);
+        return d.toISOString().slice(0, 10);
+      })();
+      const from = state.dateFrom || '0000-00-00';
+      const to   = state.dateTo   || '9999-99-99';
+      periodOk = from <= mEnd && to >= mStart;
+    }
+    const s = state.selectedStudios.size === 0 || state.selectedStudios.has(r.studio_id);
+    return periodOk && s;
+  });
+}
+
+// ─── MULTI-SELECT STUDIO WIDGET ──────────────────────────────────────────────
+function buildMsItems(list) {
+  const container = document.getElementById('msItemList');
+  container.innerHTML = '';
+  const typeColors = { own: 'var(--own)', franchise: 'var(--franchise)', other: 'var(--muted)' };
+  let lastType = null;
+  list.forEach(studio => {
+    if (studio.type !== lastType) {
+      if (lastType !== null) {
+        const sep = document.createElement('div');
+        sep.className = 'ms-separator';
+        container.appendChild(sep);
+      }
+      lastType = studio.type;
+    }
+    const item = document.createElement('label');
+    item.className = 'ms-item';
+    item.dataset.studioId = studio.id;
+    item.dataset.name = studio.name.toLowerCase();
+    const cb = document.createElement('input');
+    cb.type = 'checkbox';
+    cb.checked = state.selectedStudios.has(studio.id);
+    cb.addEventListener('change', () => {
+      if (cb.checked) state.selectedStudios.add(studio.id);
+      else            state.selectedStudios.delete(studio.id);
+      updateMsBtn();
+      render();
+    });
+    const dot = document.createElement('span');
+    dot.className = 'ms-item-dot';
+    dot.style.background = typeColors[studio.type] || 'var(--muted)';
+    const name = document.createElement('span');
+    name.className = 'ms-item-name';
+    name.textContent = studio.name;
+    item.appendChild(cb);
+    item.appendChild(dot);
+    item.appendChild(name);
+    container.appendChild(item);
+  });
+}
+
+function updateMsBtn() {
+  const count = state.selectedStudios.size;
+  const btnText = document.getElementById('msBtnText');
+  const badge   = document.getElementById('msBadge');
+  if (count === 0) {
+    btnText.textContent = 'Все студии';
+    badge.style.display = 'none';
+  } else {
+    const total = document.querySelectorAll('#msItemList .ms-item').length;
+    if (count === 1) {
+      const el = [...document.querySelectorAll('#msItemList .ms-item')]
+        .find(el => state.selectedStudios.has(el.dataset.studioId));
+      btnText.textContent = el?.querySelector('.ms-item-name')?.textContent || '1 студия';
+    } else {
+      btnText.textContent = `${count} из ${total} студий`;
+    }
+    badge.style.display = 'inline';
+    badge.textContent = count;
+  }
+}
+
+function toggleMsDropdown() {
+  const wrap = document.getElementById('msWrap');
+  wrap.classList.toggle('open');
+  if (wrap.classList.contains('open')) {
+    document.getElementById('msSearch').value = '';
+    filterMsItems();
+    setTimeout(() => document.getElementById('msSearch').focus(), 50);
+  }
+}
+
+function filterMsItems() {
+  const q = document.getElementById('msSearch').value.toLowerCase().trim();
+  document.querySelectorAll('#msItemList .ms-item').forEach(el => {
+    el.style.display = (!q || el.dataset.name.includes(q)) ? '' : 'none';
+  });
+}
+
+function msSelectAll() {
+  document.querySelectorAll('#msItemList .ms-item').forEach(el => {
+    if (el.style.display === 'none') return;
+    state.selectedStudios.add(el.dataset.studioId);
+    el.querySelector('input[type=checkbox]').checked = true;
+  });
+  updateMsBtn(); render();
+}
+
+function msClearAll() {
+  state.selectedStudios.clear();
+  document.querySelectorAll('#msItemList .ms-item input[type=checkbox]').forEach(cb => cb.checked = false);
+  updateMsBtn(); render();
+}
+
+document.addEventListener('click', e => {
+  const wrap = document.getElementById('msWrap');
+  if (wrap && !wrap.contains(e.target)) wrap.classList.remove('open');
+});
+
+// ─── PAGE TABS ───────────────────────────────────────────────────────────────
+function switchPage(page, tabEl) {
+  document.querySelectorAll('.page-nav-tab').forEach(t => t.classList.remove('active'));
+  document.querySelectorAll('.page-content').forEach(c => c.classList.remove('active'));
+  tabEl.classList.add('active');
+  document.getElementById('page-' + page).classList.add('active');
+  state.activePage = page;
+  render();
+}
+
+// ─── DESTROY CHART ───────────────────────────────────────────────────────────
+function dc(id) { if (state.charts[id]) { state.charts[id].destroy(); delete state.charts[id]; } }
+
+// ─── RENDER ──────────────────────────────────────────────────────────────────
+function render() {
+  const rev = filteredRevenue();
+  const bud = filteredBudget();
+  if (state.activePage === 'revenue') renderRevenue(rev, bud);
+  else if (state.activePage === 'services') renderServices(rev);
+  else if (state.activePage === 'budget') renderBudget(rev, bud);
+}
+
+// ════════════════════════════════════════════════════════════════════════════
+//  REVENUE TAB
+// ════════════════════════════════════════════════════════════════════════════
+function renderRevenue(rev, bud) {
+  const total = rev.reduce((s, r) => s + r.amount, 0);
+  const budTotal = bud.reduce((s, r) => s + r.amount, 0);
+  const budIds = new Set(bud.map(r => r.studio_id));
+  const factMatchBud = rev.filter(r => budIds.has(r.studio_id)).reduce((s, r) => s + r.amount, 0);
+  const dev = factMatchBud - budTotal;
+  const devPct = budTotal > 0 ? dev / budTotal * 100 : null;
+
+  // Period label
+  let pLabel = 'Все данные';
+  if (state.dateFrom && state.dateTo) {
+    const d1 = state.dateFrom.split('-').reverse().join('.');
+    const d2 = state.dateTo.split('-').reverse().join('.');
+    pLabel = d1 === d2 ? d1 : `${d1} — ${d2}`;
+  } else if (state.dateFrom) {
+    pLabel = `от ${state.dateFrom.split('-').reverse().join('.')}`;
+  } else if (state.dateTo) {
+    pLabel = `до ${state.dateTo.split('-').reverse().join('.')}`;
+  }
+
+  document.getElementById('kpiTotal').textContent = fmt(total);
+  document.getElementById('kpiPeriod').textContent = pLabel;
+  document.getElementById('kpiBudget').textContent = fmt(budTotal);
+  const devEl = document.getElementById('kpiDev');
+  devEl.textContent = (dev >= 0 ? '+' : '') + fmt(dev);
+  devEl.className = 'kpi-value ' + (dev >= 0 ? 'green' : 'red');
+  document.getElementById('kpiDevPct').innerHTML = devPct !== null
+    ? `<span class="kpi-tag ${dev >= 0 ? 'pos' : 'neg'}">${dev >= 0 ? '+' : ''}${devPct.toFixed(1)}%</span> от плана` : '—';
+
+  renderChartByStudio(rev);
+  renderChartSplit(rev);
+  renderChartTrend();
+  renderPFTable(rev, bud);
+  renderChartProducts(rev);
+  renderTopProducts(rev);
+  renderChartOwnMonthly();
+  renderChartFranchiseMonthly();
+}
+
+function renderChartByStudio(rev) {
+  const byS = {};
+  rev.forEach(r => {
+    const k = r.studio_name || r.studio_id;
+    if (!byS[k]) byS[k] = { amount: 0, type: r.revenue_type };
+    byS[k].amount += r.amount;
+  });
+  const sorted = Object.entries(byS).sort((a, b) => b[1].amount - a[1].amount);
+  dc('chartByStudio');
+  const ctx = document.getElementById('chartByStudio').getContext('2d');
+  state.charts.chartByStudio = new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels: sorted.map(([k]) => shortName(k)),
+      datasets: [{ data: sorted.map(([, v]) => v.amount), backgroundColor: sorted.map(([, v]) => v.type === 'own' ? '#3B82F6' : v.type === 'franchise' ? '#A855F7' : '#6B7A9E'), borderRadius: 4, borderSkipped: false }]
+    },
+    options: { indexAxis: 'y', responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false }, tooltip: { callbacks: { label: c => ' ' + fmtFull(c.raw) + ' ₽' } } }, scales: { x: { grid: { color: GRID }, ticks: { callback: v => fmt(v) } }, y: { grid: { display: false }, ticks: { font: { size: 10 } } } } }
+  });
+}
+
+function renderChartSplit(rev) {
+  const ownT = rev.filter(r => r.revenue_type === 'own').reduce((s, r) => s + r.amount, 0);
+  const franT = rev.filter(r => r.revenue_type === 'franchise').reduce((s, r) => s + r.amount, 0);
+  const othT = rev.filter(r => r.revenue_type !== 'own' && r.revenue_type !== 'franchise').reduce((s, r) => s + r.amount, 0);
+  const total = ownT + franT + othT;
+  const data = [], labels = [], colors = [];
+  if (ownT > 0) { data.push(ownT); labels.push('Свои'); colors.push('#3B82F6'); }
+  if (franT > 0) { data.push(franT); labels.push('Франчайзи'); colors.push('#A855F7'); }
+  if (othT > 0) { data.push(othT); labels.push('Прочие'); colors.push('#6B7A9E'); }
+  dc('chartSplit');
+  state.charts.chartSplit = new Chart(document.getElementById('chartSplit').getContext('2d'), {
+    type: 'doughnut',
+    data: { labels, datasets: [{ data, backgroundColor: colors, borderWidth: 0, hoverOffset: 8 }] },
+    options: { responsive: true, maintainAspectRatio: true, cutout: '68%', plugins: { legend: { display: false }, tooltip: { callbacks: { label: c => ` ${c.label}: ${fmtFull(c.raw)} ₽ (${(c.raw / total * 100).toFixed(1)}%)` } } } },
+    plugins: [{ id: 'ct', beforeDraw(ch) { const { ctx: c, chartArea: { top, bottom, left, right } } = ch; const cx = (left + right) / 2, cy = (top + bottom) / 2; c.save(); c.textAlign = 'center'; c.textBaseline = 'middle'; c.fillStyle = '#111827'; c.font = 'bold 14px Segoe UI'; c.fillText(fmt(total), cx, cy - 8); c.fillStyle = '#6B7A9E'; c.font = '10px Segoe UI'; c.fillText('Итого', cx, cy + 10); c.restore(); } }]
+  });
+  document.getElementById('splitLegend').innerHTML = data.map((v, i) =>
+    `<div style="display:flex;justify-content:space-between;padding:4px 0;border-bottom:1px solid #DDE1EC;"><span style="display:flex;align-items:center;gap:6px;font-size:0.75rem;color:#6B7A9E;"><span style="width:8px;height:8px;border-radius:50%;background:${colors[i]};display:inline-block"></span>${labels[i]}</span><span style="font-size:0.75rem;font-weight:600">${fmt(v)}</span></div>`
+  ).join('');
+}
+
+function renderChartTrend() {
+  const periods = state.periods;
+  const factByP = Object.fromEntries(periods.map(p => [p, 0]));
+  filteredRevenue().forEach(r => { if (r.period in factByP) factByP[r.period] += r.amount; });
+  const budByP = Object.fromEntries(periods.map(p => [p, 0]));
+  state.budget.forEach(r => { if (r.period in budByP) budByP[r.period] += r.amount; });
+  dc('chartTrend');
+  state.charts.chartTrend = new Chart(document.getElementById('chartTrend').getContext('2d'), {
+    type: 'line',
+    data: { labels: periods.map(periodLabel), datasets: [
+      { label: 'Факт', data: periods.map(p => factByP[p]), borderColor: '#F5B800', backgroundColor: 'rgba(245,184,0,0.08)', borderWidth: 2.5, pointBackgroundColor: '#F5B800', pointRadius: 5, fill: true, tension: 0.3 },
+      { label: 'План', data: periods.map(p => budByP[p]), borderColor: '#6B7A9E', borderWidth: 2, borderDash: [6, 4], pointBackgroundColor: '#6B7A9E', pointRadius: 4, fill: false, tension: 0.3 }
+    ]},
+    options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false }, tooltip: { callbacks: { label: c => ` ${c.dataset.label}: ${fmtFull(c.raw)} ₽` } } }, scales: { x: { grid: { color: GRID } }, y: { grid: { color: GRID }, ticks: { callback: v => fmt(v) } } } }
+  });
+}
+
+function renderPFTable(rev, bud) {
+  const factByS = {};
+  rev.forEach(r => { if (!factByS[r.studio_id]) factByS[r.studio_id] = { name: r.studio_name, amount: 0, type: r.revenue_type }; factByS[r.studio_id].amount += r.amount; });
+  const budByS = {};
+  bud.forEach(r => { if (!budByS[r.studio_id]) budByS[r.studio_id] = { name: r.studio_name, amount: 0 }; budByS[r.studio_id].amount += r.amount; });
+  const ids = new Set([...Object.keys(budByS), ...Object.keys(factByS)]);
+  const rows = Array.from(ids).map(id => {
+    const fact = factByS[id]?.amount || 0, plan = budByS[id]?.amount || 0;
+    const name = factByS[id]?.name || budByS[id]?.name || id;
+    const type = factByS[id]?.type || state.studios[id]?.type || 'own';
+    const dev = fact - plan, devPct = plan > 0 ? dev / plan * 100 : null;
+    return { id, name, fact, plan, dev, devPct, type };
+  }).filter(r => r.plan > 0 || r.fact > 0).sort((a, b) => b.plan - a.plan);
+  document.getElementById('pfTableBody').innerHTML = rows.map(r => {
+    const devStr = r.devPct !== null ? `<span class="${r.dev >= 0 ? 'text-green' : 'text-red'}">${r.dev >= 0 ? '+' : ''}${r.devPct.toFixed(1)}%</span>` : '<span class="text-muted">—</span>';
+    const fill = r.plan > 0 ? Math.min(Math.abs(r.dev) / r.plan * 100, 100) : 0;
+    return `<tr><td><span class="studio-dot ${r.type}"></span><span style="font-size:0.78rem">${shortName(r.name)}</span></td><td class="text-right" style="font-size:0.78rem">${fmt(r.fact)}</td><td class="text-right" style="font-size:0.78rem;color:var(--muted)">${r.plan > 0 ? fmt(r.plan) : '—'}</td><td class="text-right" style="font-size:0.78rem">${devStr}${r.plan > 0 ? `<div class="deviation-bar"><div class="deviation-fill" style="width:${fill}%;background:${r.dev >= 0 ? '#22C55E' : '#EF4444'}"></div></div>` : ''}</td></tr>`;
+  }).join('');
+}
+
+function renderChartProducts(rev) {
+  const cats = {};
+  rev.forEach(r => { const c = categorizeProduct(r.product_type); cats[c] = (cats[c] || 0) + r.amount; });
+  const sorted = Object.entries(cats).sort((a, b) => b[1] - a[1]);
+  const total = sorted.reduce((s, [, v]) => s + v, 0);
+  dc('chartProducts');
+  state.charts.chartProducts = new Chart(document.getElementById('chartProducts').getContext('2d'), {
+    type: 'doughnut',
+    data: { labels: sorted.map(([k]) => k), datasets: [{ data: sorted.map(([, v]) => v), backgroundColor: sorted.map(([k]) => CAT_COLORS[k] || '#6B7A9E'), borderWidth: 0, hoverOffset: 6 }] },
+    options: { responsive: true, maintainAspectRatio: false, cutout: '55%', plugins: { legend: { position: 'right', labels: { boxWidth: 10, padding: 12, font: { size: 11 }, color: '#6B7A9E' } }, tooltip: { callbacks: { label: c => ` ${c.label}: ${fmtFull(c.raw)} ₽ (${(c.raw / total * 100).toFixed(1)}%)` } } } }
+  });
+}
+
+function renderTopProducts(rev) {
+  const prods = {};
+  rev.forEach(r => { const n = (r.product_type || 'Не указано').trim(); prods[n] = (prods[n] || 0) + r.amount; });
+  const sorted = Object.entries(prods).sort((a, b) => b[1] - a[1]).slice(0, 15);
+  const max = sorted[0]?.[1] || 1, total = rev.reduce((s, r) => s + r.amount, 0);
+  document.getElementById('topProductsList').innerHTML = sorted.map(([name, amount], i) => {
+    const cat = categorizeProduct(name), col = CAT_COLORS[cat] || '#6B7A9E';
+    return `<div class="prod-row"><span class="prod-rank">${i + 1}</span><div style="flex:1;min-width:0"><div style="font-size:0.78rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis" title="${name}">${name}</div><div style="font-size:0.65rem;color:${col};margin-top:1px">${cat}</div><div class="prod-bar"><div class="prod-fill" style="width:${amount / max * 100}%;background:${col}"></div></div></div><span class="prod-amount">${fmt(amount)}</span><span class="prod-pct">${(amount / total * 100).toFixed(1)}%</span></div>`;
+  }).join('');
+}
+
+function renderChartOwnMonthly() {
+  const periods = state.periods;
+  const COLORS = ['#3B82F6', '#22C55E', '#F59E0B', '#EF4444', '#8B5CF6', '#06B6D4', '#F97316', '#EC4899', '#10B981', '#6366F1'];
+  const ds = Object.values(state.studios).filter(s => s.type === 'own').map((s, i) => ({
+    label: shortName(s.name), borderColor: COLORS[i % COLORS.length], backgroundColor: 'transparent', borderWidth: 2, pointRadius: 4, tension: 0.3,
+    data: periods.map(p => state.revenue.filter(r => r.studio_id === s.id && r.period === p && r.revenue_type === 'own').reduce((sum, r) => sum + r.amount, 0))
+  })).filter(d => d.data.some(v => v > 0));
+  dc('chartOwnMonthly');
+  state.charts.chartOwnMonthly = new Chart(document.getElementById('chartOwnMonthly').getContext('2d'), {
+    type: 'line', data: { labels: periods.map(periodLabel), datasets: ds },
+    options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'bottom', labels: { boxWidth: 8, padding: 10, font: { size: 10 } } }, tooltip: { callbacks: { label: c => ` ${c.dataset.label}: ${fmtFull(c.raw)} ₽` } } }, scales: { x: { grid: { color: GRID } }, y: { grid: { color: GRID }, ticks: { callback: v => fmt(v) } } } }
+  });
+}
+
+function renderChartFranchiseMonthly() {
+  const periods = state.periods;
+  const COLORS = ['#A855F7', '#EC4899', '#F97316', '#10B981', '#F59E0B', '#06B6D4', '#6366F1'];
+  const ds = Object.values(state.studios).filter(s => s.type === 'franchise').map((s, i) => ({
+    label: shortName(s.name), borderColor: COLORS[i % COLORS.length], backgroundColor: 'transparent', borderWidth: 2, pointRadius: 4, tension: 0.3,
+    data: periods.map(p => state.revenue.filter(r => r.studio_id === s.id && r.period === p).reduce((sum, r) => sum + r.amount, 0))
+  })).filter(d => d.data.some(v => v > 0));
+  dc('chartFranchiseMonthly');
+  state.charts.chartFranchiseMonthly = new Chart(document.getElementById('chartFranchiseMonthly').getContext('2d'), {
+    type: 'line', data: { labels: periods.map(periodLabel), datasets: ds },
+    options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'bottom', labels: { boxWidth: 8, padding: 10, font: { size: 10 } } }, tooltip: { callbacks: { label: c => ` ${c.dataset.label}: ${fmtFull(c.raw)} ₽` } } }, scales: { x: { grid: { color: GRID } }, y: { grid: { color: GRID }, ticks: { callback: v => fmt(v) } } } }
+  });
+}
+
+// ════════════════════════════════════════════════════════════════════════════
+//  SERVICES TAB
+// ════════════════════════════════════════════════════════════════════════════
+function renderServices(rev) {
+  const total = rev.reduce((s, r) => s + r.amount, 0);
+  const count = rev.length;
+  const avg = count > 0 ? total / count : 0;
+  const uniq = new Set(rev.map(r => (r.product_type || '').trim())).size;
+
+  // Category aggregation
+  const cats = {};
+  rev.forEach(r => {
+    const c = categorizeProduct(r.product_type);
+    if (!cats[c]) cats[c] = { count: 0, amount: 0 };
+    cats[c].count++; cats[c].amount += r.amount;
+  });
+  const catSorted = Object.entries(cats).sort((a, b) => b[1].count - a[1].count);
+  const topCat = catSorted[0];
+
+  const pLabel = state.dateFrom && state.dateTo
+    ? `${state.dateFrom.split('-').reverse().join('.')} — ${state.dateTo.split('-').reverse().join('.')}`
+    : 'Все данные';
+  document.getElementById('svcKpiCount').textContent = count.toLocaleString('ru-RU');
+  document.getElementById('svcKpiPeriod').textContent = pLabel;
+  document.getElementById('svcKpiAvg').textContent = fmt(Math.round(avg));
+  document.getElementById('svcKpiUniq').textContent = uniq.toLocaleString('ru-RU');
+  document.getElementById('svcKpiTopCat').textContent = topCat ? topCat[0] : '—';
+  document.getElementById('svcKpiTopCatSub').textContent = topCat ? `${topCat[1].count} операций` : '—';
+
+  // Chart: count by category
+  const maxCount = catSorted[0]?.[1].count || 1;
+  dc('chartSvcCatCount');
+  state.charts.chartSvcCatCount = new Chart(document.getElementById('chartSvcCatCount').getContext('2d'), {
+    type: 'bar',
+    data: { labels: catSorted.map(([k]) => k), datasets: [{ data: catSorted.map(([, v]) => v.count), backgroundColor: catSorted.map(([k]) => CAT_COLORS[k] || '#6B7A9E'), borderRadius: 4, borderSkipped: false }] },
+    options: { indexAxis: 'y', responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false }, tooltip: { callbacks: { label: c => ` ${c.raw.toLocaleString('ru-RU')} операций` } } }, scales: { x: { grid: { color: GRID } }, y: { grid: { display: false }, ticks: { font: { size: 10 } } } } }
+  });
+
+  // Chart: avg check by category
+  const avgData = catSorted.map(([k, v]) => ({ cat: k, avg: v.count > 0 ? Math.round(v.amount / v.count) : 0 })).sort((a, b) => b.avg - a.avg);
+  dc('chartSvcCatAvg');
+  state.charts.chartSvcCatAvg = new Chart(document.getElementById('chartSvcCatAvg').getContext('2d'), {
+    type: 'bar',
+    data: { labels: avgData.map(d => d.cat), datasets: [{ data: avgData.map(d => d.avg), backgroundColor: avgData.map(d => CAT_COLORS[d.cat] || '#6B7A9E'), borderRadius: 4, borderSkipped: false }] },
+    options: { indexAxis: 'y', responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false }, tooltip: { callbacks: { label: c => ` ${fmtFull(c.raw)} ₽` } } }, scales: { x: { grid: { color: GRID }, ticks: { callback: v => fmt(v) } }, y: { grid: { display: false }, ticks: { font: { size: 10 } } } } }
+  });
+
+  // Chart: count by studio
+  const byStudio = {};
+  rev.forEach(r => { const k = shortName(r.studio_name || r.studio_id); byStudio[k] = (byStudio[k] || 0) + 1; });
+  const studioSorted = Object.entries(byStudio).sort((a, b) => b[1] - a[1]);
+  const studioColors = studioSorted.map(([k]) => {
+    const studio = Object.values(state.studios).find(s => shortName(s.name) === k);
+    return studio?.type === 'franchise' ? '#A855F7' : '#3B82F6';
+  });
+  dc('chartSvcStudio');
+  state.charts.chartSvcStudio = new Chart(document.getElementById('chartSvcStudio').getContext('2d'), {
+    type: 'bar',
+    data: { labels: studioSorted.map(([k]) => k), datasets: [{ data: studioSorted.map(([, v]) => v), backgroundColor: studioColors, borderRadius: 4, borderSkipped: false }] },
+    options: { indexAxis: 'y', responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false }, tooltip: { callbacks: { label: c => ` ${c.raw.toLocaleString('ru-RU')} операций` } } }, scales: { x: { grid: { color: GRID } }, y: { grid: { display: false }, ticks: { font: { size: 10 } } } } }
+  });
+
+  // Top products by count
+  const prodCount = {};
+  rev.forEach(r => { const n = (r.product_type || 'Не указано').trim(); prodCount[n] = (prodCount[n] || 0) + 1; });
+  const prodSorted = Object.entries(prodCount).sort((a, b) => b[1] - a[1]).slice(0, 15);
+  const maxProd = prodSorted[0]?.[1] || 1;
+  document.getElementById('topSvcList').innerHTML = prodSorted.map(([name, cnt], i) => {
+    const cat = categorizeProduct(name), col = CAT_COLORS[cat] || '#6B7A9E';
+    return `<div class="prod-row"><span class="prod-rank">${i + 1}</span><div style="flex:1;min-width:0"><div style="font-size:0.78rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis" title="${name}">${name}</div><div style="font-size:0.65rem;color:${col};margin-top:1px">${cat}</div><div class="prod-bar"><div class="prod-fill" style="width:${cnt / maxProd * 100}%;background:${col}"></div></div></div><span class="prod-amount">${cnt.toLocaleString('ru-RU')} шт</span><span class="prod-pct">${(cnt / count * 100).toFixed(1)}%</span></div>`;
+  }).join('');
+
+  // Chart: monthly trend (count + amount)
+  const periods = state.periods;
+  const cntByP = Object.fromEntries(periods.map(p => [p, 0]));
+  const amtByP = Object.fromEntries(periods.map(p => [p, 0]));
+  rev.forEach(r => { if (r.period in cntByP) { cntByP[r.period]++; amtByP[r.period] += r.amount; } });
+  dc('chartSvcTrend');
+  state.charts.chartSvcTrend = new Chart(document.getElementById('chartSvcTrend').getContext('2d'), {
+    type: 'bar',
+    data: { labels: periods.map(periodLabel), datasets: [
+      { label: 'Кол-во', data: periods.map(p => cntByP[p]), backgroundColor: 'rgba(245,184,0,0.7)', borderRadius: 4, yAxisID: 'y' },
+      { label: 'Сумма', data: periods.map(p => amtByP[p]), type: 'line', borderColor: '#3B82F6', borderWidth: 2, pointBackgroundColor: '#3B82F6', pointRadius: 5, fill: false, tension: 0.3, yAxisID: 'y2' }
+    ]},
+    options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'top', labels: { boxWidth: 10, padding: 12 } }, tooltip: { callbacks: { label: c => c.dataset.label === 'Кол-во' ? ` ${c.raw.toLocaleString('ru-RU')} операций` : ` ${fmtFull(c.raw)} ₽` } } }, scales: { y: { grid: { color: GRID }, ticks: { precision: 0 }, title: { display: true, text: 'Количество', color: '#6B7A9E', font: { size: 10 } } }, y2: { position: 'right', grid: { display: false }, ticks: { callback: v => fmt(v), color: '#3B82F6' } }, x: { grid: { color: GRID } } } }
+  });
+
+  // Category detail table
+  document.getElementById('svcCatTableBody').innerHTML = catSorted.map(([cat, v]) => {
+    const col = CAT_COLORS[cat] || '#6B7A9E';
+    return `<tr><td><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${col};margin-right:6px"></span><span style="font-size:0.78rem">${cat}</span></td><td class="text-right" style="font-size:0.78rem">${v.count.toLocaleString('ru-RU')}</td><td class="text-right" style="font-size:0.78rem">${fmt(v.amount)}</td><td class="text-right" style="font-size:0.78rem;color:var(--accent)">${fmt(Math.round(v.amount / v.count))}</td></tr>`;
+  }).join('');
+}
+
+// ════════════════════════════════════════════════════════════════════════════
+//  BUDGET TAB
+// ════════════════════════════════════════════════════════════════════════════
+function renderBudget(rev, bud) {
+  const budTotal = bud.reduce((s, r) => s + r.amount, 0);
+  const ownStudios = new Set(Object.values(state.studios).filter(s => s.type === 'own').map(s => s.id));
+  const franStudios = new Set(Object.values(state.studios).filter(s => s.type === 'franchise').map(s => s.id));
+  const budOwn = bud.filter(r => ownStudios.has(r.studio_id)).reduce((s, r) => s + r.amount, 0);
+  const budFran = bud.filter(r => franStudios.has(r.studio_id)).reduce((s, r) => s + r.amount, 0);
+  const factTotal = rev.reduce((s, r) => s + r.amount, 0);
+  const exec = budTotal > 0 ? factTotal / budTotal * 100 : null;
+
+  const pLabel = state.dateFrom && state.dateTo
+    ? `${state.dateFrom.split('-').reverse().join('.')} — ${state.dateTo.split('-').reverse().join('.')}`
+    : 'Все данные';
+  document.getElementById('budKpiTotal').textContent = fmt(budTotal);
+  document.getElementById('budKpiPeriod').textContent = pLabel;
+  document.getElementById('budKpiOwn').textContent = fmt(budOwn);
+  document.getElementById('budKpiOwnPct').textContent = budTotal > 0 ? `${(budOwn / budTotal * 100).toFixed(0)}% от плана` : '—';
+  document.getElementById('budKpiFran').textContent = fmt(budFran);
+  document.getElementById('budKpiFranPct').textContent = budTotal > 0 ? `${(budFran / budTotal * 100).toFixed(0)}% от плана` : '—';
+  const execEl = document.getElementById('budKpiExec');
+  execEl.textContent = exec !== null ? exec.toFixed(1) + '%' : '—';
+  execEl.className = 'kpi-value ' + (exec === null ? '' : exec >= 100 ? 'green' : exec >= 80 ? 'accent' : 'red');
+  document.getElementById('budKpiExecSub').textContent = `${fmt(factTotal)} / ${fmt(budTotal)}`;
+
+  // Plan + Fact by studio (grouped bar)
+  const budByS = {};
+  bud.forEach(r => { budByS[r.studio_id] = (budByS[r.studio_id] || 0) + r.amount; });
+  const factByS = {};
+  rev.forEach(r => { factByS[r.studio_id] = (factByS[r.studio_id] || 0) + r.amount; });
+  const studioIds = Object.keys(budByS).sort((a, b) => (budByS[b] || 0) - (budByS[a] || 0));
+  const sLabels = studioIds.map(id => shortName(state.studios[id]?.name || id));
+  const sType = studioIds.map(id => state.studios[id]?.type || 'own');
+
+  dc('budChartByStudio');
+  state.charts.budChartByStudio = new Chart(document.getElementById('budChartByStudio').getContext('2d'), {
+    type: 'bar',
+    data: { labels: sLabels, datasets: [
+      { label: 'План', data: studioIds.map(id => budByS[id] || 0), backgroundColor: studioIds.map((id, i) => sType[i] === 'franchise' ? 'rgba(168,85,247,0.6)' : 'rgba(59,130,246,0.6)'), borderRadius: 4 },
+      { label: 'Факт', data: studioIds.map(id => factByS[id] || 0), backgroundColor: 'rgba(245,184,0,0.8)', borderRadius: 4 }
+    ]},
+    options: { indexAxis: 'y', responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'top', labels: { boxWidth: 10, padding: 12 } }, tooltip: { callbacks: { label: c => ` ${c.dataset.label}: ${fmtFull(c.raw)} ₽` } } }, scales: { x: { grid: { color: GRID }, ticks: { callback: v => fmt(v) }, stacked: false }, y: { grid: { display: false }, ticks: { font: { size: 10 } } } } }
+  });
+
+  // Execution % by studio
+  const execData = studioIds.map(id => {
+    const b = budByS[id] || 0, f = factByS[id] || 0;
+    return b > 0 ? Math.round(f / b * 100) : 0;
+  });
+  dc('budChartExec');
+  state.charts.budChartExec = new Chart(document.getElementById('budChartExec').getContext('2d'), {
+    type: 'bar',
+    data: { labels: sLabels, datasets: [{ data: execData, backgroundColor: execData.map(v => v >= 100 ? '#22C55E' : v >= 80 ? '#F5B800' : '#EF4444'), borderRadius: 4, borderSkipped: false }] },
+    options: { indexAxis: 'y', responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false }, tooltip: { callbacks: { label: c => ` ${c.raw}%` } } }, scales: { x: { grid: { color: GRID }, min: 0, max: Math.max(120, ...execData), ticks: { callback: v => v + '%' } }, y: { grid: { display: false }, ticks: { font: { size: 10 } } } } }
+  });
+
+  // Monthly plan vs fact
+  const periods = state.periods;
+  const mBudget = Object.fromEntries(periods.map(p => [p, 0]));
+  const mFact = Object.fromEntries(periods.map(p => [p, 0]));
+  state.budget.forEach(r => { if (r.period in mBudget) mBudget[r.period] += r.amount; });
+  rev.forEach(r => { if (r.period in mFact) mFact[r.period] += r.amount; });
+  dc('budChartMonthly');
+  state.charts.budChartMonthly = new Chart(document.getElementById('budChartMonthly').getContext('2d'), {
+    type: 'bar',
+    data: { labels: periods.map(periodLabel), datasets: [
+      { label: 'План', data: periods.map(p => mBudget[p]), backgroundColor: 'rgba(107,122,158,0.5)', borderRadius: 4 },
+      { label: 'Факт', data: periods.map(p => mFact[p]), backgroundColor: 'rgba(245,184,0,0.8)', borderRadius: 4 }
+    ]},
+    options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'top', labels: { boxWidth: 10, padding: 12 } }, tooltip: { callbacks: { label: c => ` ${c.dataset.label}: ${fmtFull(c.raw)} ₽` } } }, scales: { x: { grid: { color: GRID } }, y: { grid: { color: GRID }, ticks: { callback: v => fmt(v) } } } }
+  });
+
+  // Detail table with months
+  const allMonths = Array.from(new Set(state.budget.map(r => r.period))).sort();
+  const thead = document.getElementById('budDetailHead');
+  thead.innerHTML = `<th>Студия</th>` + allMonths.map(p => `<th class="text-right" style="font-size:0.7rem">${periodLabel(p)}</th>`).join('') + `<th class="text-right">Итого</th>`;
+  const studioPlans = {};
+  state.budget.forEach(r => {
+    if (!studioPlans[r.studio_id]) studioPlans[r.studio_id] = { name: r.studio_name, months: {} };
+    studioPlans[r.studio_id].months[r.period] = r.amount;
+  });
+  document.getElementById('budDetailBody').innerHTML = Object.entries(studioPlans)
+    .sort((a, b) => Object.values(b[1].months).reduce((s, v) => s + v, 0) - Object.values(a[1].months).reduce((s, v) => s + v, 0))
+    .map(([id, s]) => {
+      const total = Object.values(s.months).reduce((sum, v) => sum + v, 0);
+      const type = state.studios[id]?.type || 'own';
+      const monthCells = allMonths.map(p => `<td class="text-right" style="font-size:0.75rem;color:var(--muted)">${s.months[p] ? fmt(s.months[p]) : '—'}</td>`).join('');
+      return `<tr><td><span class="studio-dot ${type}"></span><span style="font-size:0.78rem">${shortName(s.name)}</span></td>${monthCells}<td class="text-right" style="font-size:0.78rem;font-weight:600;color:var(--accent)">${fmt(total)}</td></tr>`;
+    }).join('');
+}
+
+// ─── INIT ────────────────────────────────────────────────────────────────────
+async function init() {
+  try {
+    await loadData();
+    document.getElementById('updateTime').textContent = new Date().toLocaleString('ru-RU', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+    render();
+    document.getElementById('loader').style.opacity = '0';
+    document.getElementById('loader').style.transition = 'opacity 0.5s';
+    setTimeout(() => document.getElementById('loader').style.display = 'none', 500);
+  } catch (err) {
+    document.getElementById('loader').innerHTML = `<div class="loader-logo">THE FLEX</div><div style="color:#EF4444;font-size:0.85rem;text-align:center;max-width:400px;padding:0 20px">Ошибка загрузки данных.<br><span style="color:#6B7A9E;font-size:0.75rem">Убедитесь, что Google Таблица открыта для просмотра.</span></div><button onclick="location.reload()" style="margin-top:20px;background:transparent;border:1px solid #EF4444;color:#EF4444;padding:8px 20px;border-radius:6px;cursor:pointer">Обновить страницу</button>`;
+    console.error(err);
+  }
+}
+
+init();
+</script>
+</body>
+</html>
